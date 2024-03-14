@@ -13,6 +13,7 @@ func SetupRoutes(r *gin.Engine, db *sql.DB) {
 		exampleRoutes := api.Group("/example") // example api group
 		{
 			exampleRoutes.GET("/", controllers.GetExample(db)) // get all examples
+			exampleRoutes.DELETE("/bulk", controllers.DeleteExampleBulk(db))
 		}
 	}
 }
