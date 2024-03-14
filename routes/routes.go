@@ -10,9 +10,9 @@ import (
 func SetupRoutes(r *gin.Engine, db *sql.DB) {
 	api := r.Group("/api")
 	{
-		depositRoutes := api.Group("/example") // example api group
+		exampleRoutes := api.Group("/example") // example api group
 		{
-			depositRoutes.GET("/", controllers.GetExample(db)) // get all examples
+			exampleRoutes.GET("/", controllers.GetExample(db)) // get all examples
 		}
 	}
 }
