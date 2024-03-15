@@ -14,15 +14,19 @@ func GetExample(db *sql.DB) gin.HandlerFunc {
 
 		// Query the database for all records
 		rows, err := db.Query("SELECT * FROM example")
+
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error querying the database"})
 			return
 		}
+
+		//close the rows when the surrounding function returns(handler function)
 		defer rows.Close()
 
 		// Iterate over the rows and scan them into ExampleModel structs
 		var examples []models.ExampleModel
+
 		for rows.Next() {
 			var example models.ExampleModel
 			if err := rows.Scan(&example.Column1, &example.Column2, &example.Column3); err != nil {
@@ -33,6 +37,7 @@ func GetExample(db *sql.DB) gin.HandlerFunc {
 			examples = append(examples, example)
 		}
 
+		//this runs only when loop didn't work
 		if err := rows.Err(); err != nil {
 			fmt.Printf("%s\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error iterating over rows from the database"})
@@ -56,7 +61,7 @@ func GetExampleByID(db *sql.DB) gin.HandlerFunc {
 		var example models.ExampleModel
 
 		// Query the database for the record with the given ID
-		row := db.QueryRow("SELECT * FROM example WHERE column1 = $1", id)
+		row := db.QueryRow("SELECT * FROM example WHERE new_column = $1", id)
 
 		// Scan the row into the ExampleModel struct
 		if err := row.Scan(&example.Column1, &example.Column2, &example.Column3); err != nil {
@@ -103,10 +108,22 @@ func AddExample(db *sql.DB) gin.HandlerFunc {
 func UpdateExample(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ... your function context here
+		var example models.ExampleModel
 
+		if err := c.BindJSON(&example); err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "Binding Data"})
+			return
+		}
+
+		_, err := db.Exec("UPDATE example SET column1 = $1, column2 =$2 WHERE new_column=$3", example.Column1, example.Column2, example.Column3)
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error in data Update"})
+			return
+		}
 		// return statement
-		c.JSON(http.StatusOK, gin.H{ /* instead of gin.H add your returning value */ })
+		c.JSON(http.StatusOK, gin.H{"Update": "Details Update"})
 	}
 }
 
