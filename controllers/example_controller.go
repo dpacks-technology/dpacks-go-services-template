@@ -2,19 +2,47 @@ package controllers
 
 import (
 	"database/sql"
+	"dpacks-go-services-template/models"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 // GetExample handles GET /api/example - READ
 func GetExample(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ... your function context here
+		// Query the database for all records
+		rows, err := db.Query("SELECT * FROM example")
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error querying the database"})
+			return
+		}
+		defer rows.Close()
 
-		// return statement
-		c.JSON(http.StatusOK, gin.H{ /* instead of gin.H add your returning value */ })
+		// Iterate over the rows and scan them into ExampleModel structs
+		var examples []models.ExampleModel
+		for rows.Next() {
+			var example models.ExampleModel
+			if err := rows.Scan(&example.Column1, &example.Column2, &example.Column3); err != nil {
+				fmt.Printf("%s\n", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error scanning rows from the database"})
+				return
+			}
+			examples = append(examples, example)
+		}
+
+		if err := rows.Err(); err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error iterating over rows from the database"})
+			return
+		}
+
+		// Return all examples as JSON
+		c.JSON(http.StatusOK, examples)
+
 	}
 }
 
@@ -22,10 +50,25 @@ func GetExample(db *sql.DB) gin.HandlerFunc {
 func GetExampleByID(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ... your function context here
+		// Get the ID from the URL
+		id := c.Param("id")
 
-		// return statement
-		c.JSON(http.StatusOK, gin.H{ /* instead of gin.H add your returning value */ })
+		// Create an empty ExampleModel struct
+		var example models.ExampleModel
+
+		// Query the database for the record with the given ID
+		row := db.QueryRow("SELECT * FROM example WHERE column1 = $1", id)
+
+		// Scan the row into the ExampleModel struct
+		if err := row.Scan(&example.Column1, &example.Column2, &example.Column3); err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error querying the database"})
+			return
+		}
+
+		// Return the example as JSON
+		c.JSON(http.StatusOK, example)
+
 	}
 }
 
@@ -33,10 +76,27 @@ func GetExampleByID(db *sql.DB) gin.HandlerFunc {
 func AddExample(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ... your function context here
+		// Create an empty ExampleModel struct
+		var example models.ExampleModel
 
-		// return statement
-		c.JSON(http.StatusOK, gin.H{ /* instead of gin.H add your returning value */ })
+		// Bind the JSON to the ExampleModel struct
+		if err := c.BindJSON(&example); err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Error binding JSON"})
+			return
+		}
+
+		// Insert the record into the database
+		_, err := db.Exec("INSERT INTO example (column1, column2, column3) VALUES ($1, $2, $3)", example.Column1, example.Column2, example.Column3)
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error inserting into the database"})
+			return
+		}
+
+		// Return the example as JSON
+		c.JSON(http.StatusOK, example)
+
 	}
 }
 
