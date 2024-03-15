@@ -91,7 +91,7 @@ func AddExample(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// Insert the record into the database
-		_, err := db.Exec("INSERT INTO example (column1, column2, column3) VALUES ($1, $2, $3)", example.Column1, example.Column2, example.Column3)
+		_, err := db.Exec("INSERT INTO example (column2, column3, new_column) VALUES ($1, $2, $3)", example.Column1, example.Column2, example.Column3)
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error inserting into the database"})
@@ -108,7 +108,10 @@ func AddExample(db *sql.DB) gin.HandlerFunc {
 func UpdateExample(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		var example models.ExampleModel
+		// Get the ID from the URL
+		id := c.Param("id")
+
+		var example models.UpdateModel
 
 		if err := c.BindJSON(&example); err != nil {
 			fmt.Printf("%s\n", err)
@@ -116,7 +119,7 @@ func UpdateExample(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err := db.Exec("UPDATE example SET column1 = $1, column2 =$2 WHERE new_column=$3", example.Column1, example.Column2, example.Column3)
+		_, err := db.Exec("UPDATE example SET column2 = $1, column3 = $2 WHERE new_column=$3", example.Column1, example.Column2, id)
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error in data Update"})
