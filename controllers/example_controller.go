@@ -134,10 +134,45 @@ func UpdateExample(db *sql.DB) gin.HandlerFunc {
 func UpdateExampleBulk(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ... your function context here
+		var example []models.ExampleModel
+
+		//close the db connection
+
+		if err := c.BindJSON(&example); err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "Data Binding Error"})
+			return
+		}
+
+		//create tempory table and sned this data to tempory tbl
+		_, err := db.Exec("CREATE TEMP TABLE temp_example (LIKE example INCLUDING ALL);")
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error in creating tempory table"})
+			return
+		}
+
+		//insert data into tempory table
+		for _, v := range example {
+			_, err := db.Exec("INSERT INTO temp_example (column2, column3, new_column) VALUES ($1, $2, $3)", v.Column1, v.Column2, v.Column3)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error in inserting data into tempory table"})
+				return
+			}
+		}
+
+		//update data from tempory table to main table
+		_, err = db.Exec("UPDATE example SET column2 = temp_example.column2, column3 = temp_example.column3 FROM temp_example WHERE example.new_column = temp_example.new_column")
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error in updating data"})
+			return
+		}
 
 		// return statement
-		c.JSON(http.StatusOK, gin.H{ /* instead of gin.H add your returning value */ })
+		c.JSON(http.StatusOK, gin.H{"success": "done"})
+		db.Exec("DROP TABLE temp_example")
 	}
 }
 
