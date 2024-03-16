@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"dpacks-go-services-template/models"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -57,7 +58,7 @@ func GetExampleByID(db *sql.DB) gin.HandlerFunc {
 		var example models.ExampleModel
 
 		// Query the database for the record with the given ID
-		row := db.QueryRow("SELECT * FROM example WHERE column1 = $1", id)
+		row := db.QueryRow("SELECT * FROM example WHERE new_column = $1", id)
 
 		// Scan the row into the ExampleModel struct
 		if err := row.Scan(&example.Column1, &example.Column2, &example.Column3); err != nil {
@@ -87,7 +88,7 @@ func AddExample(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// Insert the record into the database
-		_, err := db.Exec("INSERT INTO example (column1, column2, column3) VALUES ($1, $2, $3)", example.Column1, example.Column2, example.Column3)
+		_, err := db.Exec("INSERT INTO example (column2, column3, new_column) VALUES ($1, $2, $3)", example.Column1, example.Column2, example.Column3)
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error inserting into the database"})
@@ -145,42 +146,31 @@ func DeleteExampleBulk(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
 		}
-		fmt.Printf("Received request: %+v\n", request)
 
-		// Open a transaction
-		tx, err := db.Begin()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
-			return
-		}
-		defer func() {
-			if err != nil {
-				tx.Rollback() // Rollback on any error
+		//Construct the DELETE query
+		query := "DELETE FROM example WHERE new_column IN ("
+		for i, id := range request.IDs {
+			if i > 0 {
+				query += ","
 			}
-		}()
-
-		// Prepare the DELETE statement
-		stmt, err := tx.Prepare("DELETE FROM example WHERE column1 IN (?)")
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare statement"})
-			return
+			query += fmt.Sprintf("%d", id)
 		}
-		defer stmt.Close() // Close the prepared statement after use
+		query += ")"
 
-		// Execute the DELETE query with transaction
-		_, err = stmt.Exec(request.IDs)
+		result, err := db.Exec(query)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete examples"})
 			return
 		}
 
-		// Commit the transaction if successful
-		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
-			return
+		rowCount, err := result.RowsAffected()
+		if err != nil {
+			log.Fatal(err)
 		}
 
+		fmt.Printf("Deleted %d rows\n", rowCount)
+
 		// return statement
-		c.JSON(http.StatusOK, gin.H{"message": "Examples deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Example bulk deleted successfully"})
 	}
 }
