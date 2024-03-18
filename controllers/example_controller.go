@@ -16,15 +16,19 @@ func GetExample(db *sql.DB) gin.HandlerFunc {
 
 		// Query the database for all records
 		rows, err := db.Query("SELECT * FROM example")
+
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error querying the database"})
 			return
 		}
+
+		//close the rows when the surrounding function returns(handler function)
 		defer rows.Close()
 
 		// Iterate over the rows and scan them into ExampleModel structs
 		var examples []models.ExampleModel
+
 		for rows.Next() {
 			var example models.ExampleModel
 			if err := rows.Scan(&example.Column1, &example.Column2, &example.Column3); err != nil {
@@ -35,6 +39,7 @@ func GetExample(db *sql.DB) gin.HandlerFunc {
 			examples = append(examples, example)
 		}
 
+		//this runs only when loop didn't work
 		if err := rows.Err(); err != nil {
 			fmt.Printf("%s\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error iterating over rows from the database"})
@@ -105,10 +110,25 @@ func AddExample(db *sql.DB) gin.HandlerFunc {
 func UpdateExample(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ... your function context here
+		// Get the ID from the URL
+		id := c.Param("id")
 
+		var example models.UpdateModel
+
+		if err := c.BindJSON(&example); err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "Binding Data"})
+			return
+		}
+
+		_, err := db.Exec("UPDATE example SET column2 = $1, column3 = $2 WHERE new_column=$3", example.Column1, example.Column2, id)
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error in data Update"})
+			return
+		}
 		// return statement
-		c.JSON(http.StatusOK, gin.H{ /* instead of gin.H add your returning value */ })
+		c.JSON(http.StatusOK, gin.H{"Update": "Details Update"})
 	}
 }
 
@@ -116,10 +136,45 @@ func UpdateExample(db *sql.DB) gin.HandlerFunc {
 func UpdateExampleBulk(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ... your function context here
+		var example []models.ExampleModel
+
+		//close the db connection
+
+		if err := c.BindJSON(&example); err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "Data Binding Error"})
+			return
+		}
+
+		//create tempory table and sned this data to tempory tbl
+		_, err := db.Exec("CREATE TEMP TABLE temp_example (LIKE example INCLUDING ALL);")
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error in creating tempory table"})
+			return
+		}
+
+		//insert data into tempory table
+		for _, v := range example {
+			_, err := db.Exec("INSERT INTO temp_example (column2, column3, new_column) VALUES ($1, $2, $3)", v.Column1, v.Column2, v.Column3)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error in inserting data into tempory table"})
+				return
+			}
+		}
+
+		//update data from tempory table to main table
+		_, err = db.Exec("UPDATE example SET column2 = temp_example.column2, column3 = temp_example.column3 FROM temp_example WHERE example.new_column = temp_example.new_column")
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error in updating data"})
+			return
+		}
 
 		// return statement
-		c.JSON(http.StatusOK, gin.H{ /* instead of gin.H add your returning value */ })
+		c.JSON(http.StatusOK, gin.H{"success": "done"})
+		db.Exec("DROP TABLE temp_example")
 	}
 }
 
