@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"dpacks-go-services-template/models"
 	"fmt"
-	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 // GetExample handles GET /api/example - READ
@@ -180,10 +182,24 @@ func UpdateExampleBulk(db *sql.DB) gin.HandlerFunc {
 func DeleteExample(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ... your function context here
+		// Get the ID from the URL
+		id := c.Param("id")
 
+		result, err := db.Exec("DELETE FROM example WHERE new_column = $1", id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete examples"})
+			return
+		}
+
+		rowCount, err := result.RowsAffected()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("Deleted %d rows\n", rowCount)
 		// return statement
-		c.JSON(http.StatusOK, gin.H{ /* instead of gin.H add your returning value */ })
+		c.JSON(http.StatusOK, gin.H{"message": "Example deleted successfully"})
+
 	}
 }
 
@@ -191,9 +207,39 @@ func DeleteExample(db *sql.DB) gin.HandlerFunc {
 func DeleteExampleBulk(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ... your function context here
+		var request struct {
+			IDs []int `json:"id"`
+		}
+
+		if err := c.BindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		//Construct the DELETE query
+		query := "DELETE FROM example WHERE new_column IN ("
+		for i, id := range request.IDs {
+			if i > 0 {
+				query += ","
+			}
+			query += fmt.Sprintf("%d", id)
+		}
+		query += ")"
+
+		result, err := db.Exec(query)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete examples"})
+			return
+		}
+
+		rowCount, err := result.RowsAffected()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("Deleted %d rows\n", rowCount)
 
 		// return statement
-		c.JSON(http.StatusOK, gin.H{ /* instead of gin.H add your returning value */ })
+		c.JSON(http.StatusOK, gin.H{"message": "Example bulk deleted successfully"})
 	}
 }

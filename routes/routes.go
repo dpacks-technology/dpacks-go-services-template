@@ -3,6 +3,7 @@ package routes
 import (
 	"database/sql"
 	"dpacks-go-services-template/controllers"
+
 	"github.com/gin-gonic/gin"
 )
 
